@@ -20,9 +20,14 @@
 %OUTPUTS:
 %x: the estimate of the root computed by the function
 % exit_flag: an integer indicating whether or not the solver succeeded
-
+%    1 -> success (|f(x)| < ftol or |dx| < dxmin)
+%    0 -> failed: reached max_iter without converging
+%   -1 -> failed: step too large (|dx| > dxmax)
+%   -2 -> failed: Jacobian singular (det(J*J') ~ 0)
 function [x, exit_flag] = multi_newton_solver(fun,x_guess,solver_params)
-
+    if nargin < 3
+        solver_params = struct();
+    end
     dxmin = 1e-14;
     if isfield(solver_params,'dxmin')
         dxmin = solver_params.dxmin;
@@ -67,41 +72,13 @@ function [x, exit_flag] = multi_newton_solver(fun,x_guess,solver_params)
         %----------------------------------------------------------
 
         if numerical_diff == 0
-
             % fun returns both function value and Jacobian
             [f_val,J] = fun(x);
-
         else
-
             % fun returns only the function value
             f_val = fun(x);
-
-            %------------------------------------------------------
-            % Numerically calculate Jacobian using central
-            % finite differences
-            %------------------------------------------------------
-
-            n = length(x);
-
-            J = zeros(n,n);
-
-            h = 1e-6;
-
-            for j = 1:n
-
-                % Create x+h in the jth direction
-                x_plus = x;
-                x_plus(j) = x_plus(j) + h;
-
-                % Create x-h in the jth direction
-                x_minus = x;
-                x_minus(j) = x_minus(j) - h;
-
-                % Central finite difference
-                J(:,j) = (fun(x_plus) - fun(x_minus))/(2*h);
-
-            end
-
+            % numerical approximation for the Jacobian
+            J = approximate_jacobian(fun,x);
         end
 
 
@@ -109,13 +86,26 @@ function [x, exit_flag] = multi_newton_solver(fun,x_guess,solver_params)
         % Check function tolerance
         %----------------------------------------------------------
 
-        if norm(f_val,inf) < ftol
+        if norm(f_val) < ftol
 
             exit_flag = 1;
             return
 
         end
 
+        %----------------------------------------------------------
+        % Matrix inversion safeguard
+        %
+        % If det(J*J') is ~0, J can't be "inverted" and the step
+        % would be undefined or huge, so stop here instead
+        %----------------------------------------------------------
+
+        if abs(det(J*J')) < 1e-14
+
+            exit_flag = -2;
+            return
+
+        end
 
         %----------------------------------------------------------
         % Calculate Newton step
@@ -132,7 +122,7 @@ function [x, exit_flag] = multi_newton_solver(fun,x_guess,solver_params)
         % Check step size
         %----------------------------------------------------------
 
-        if norm(dx,inf) < dxmin
+        if norm(dx) < dxmin
 
             x = x + dx;
 
@@ -146,7 +136,7 @@ function [x, exit_flag] = multi_newton_solver(fun,x_guess,solver_params)
         % Check if Newton step is too large
         %----------------------------------------------------------
 
-        if norm(dx,inf) > dxmax
+        if norm(dx) > dxmax
 
             exit_flag = -1;
             return
