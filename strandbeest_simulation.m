@@ -2,7 +2,12 @@
 function strandbeest_simulation()
 
     leg_params = define_leg_parameters();
-
+    
+    steps_per_cycle = 200;
+    num_cycles = 3;
+    tip_vertex_idx = 7;
+   
+    vertex_coords_guess = zeros(14, 1);
     % Column vector of initial guesses
     % in form: [x1;y1;x2;y2;...;xn;yn]
     vertex_coords_guess = [...
@@ -28,9 +33,36 @@ function strandbeest_simulation()
 
     % Set axis limits
     axis([-120 40 -130 60]);
+    % Labels and title
+    title('Strandbeest Leg Simulation With Tip Path','Interpreter','latex', 'FontSize',20);
 
+    xlabel('$x$ (-)','Interpreter','latex', 'FontSize',16);
+
+    ylabel('$y$ (-)', 'Interpreter','latex', 'FontSize',16);
+
+   
+
+    % calculate the leg tip path for one for cycle, do this before plotting
+    % the rest of the leg so it overlays 
+    overlay_guess = vertex_coords_guess;
+    tip_path_x = zeros (steps_per_cycle + 1, 1);
+    tip_path_y = zeros (steps_per_cycle + 1, 1);
+    for k = 1:steps_per_cycle +1
+        theta_k = 2*pi*(k-1)/steps_per_cycle;
+        coords_k = compute_coords (overlay_guess, leg_params, theta_k);
+        tip_path_x(k) = coords_k(2*tip_vertex_idx - 1);
+        tip_path_y(k) = coords_k(2*tip_vertex_idx);
+    end
+
+    path_handle = plot (tip_path_x, tip_path_y, '--', 'Color','b', LineWidth= 1)
+
+    
     % Initialize the drawing
     leg_drawing = initialize_leg_drawing(leg_params);
+
+
+  
+
 
     % Create video
     fname = 'strandbeest_animation.avi';
@@ -38,13 +70,13 @@ function strandbeest_simulation()
     open(writerObj);
 
     % Number of simulation steps
-    num_steps = 200;
+    num_steps = num_cycles*steps_per_cycle;
 
     % Loop through crank angles
     for step = 1:num_steps
 
         % Current crank angle
-        theta = 2*pi*(step-1)/num_steps;
+        theta = 2*pi*(step-1)/steps_per_cycle;
 
         % Compute linkage configuration
         vertex_coords_root = compute_coords(...
