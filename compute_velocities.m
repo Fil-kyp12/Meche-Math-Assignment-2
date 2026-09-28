@@ -7,5 +7,15 @@
 %OUTPUTS:
 %dVdtheta: a column vector containing the theta derivates of each vertex coord
 function dVdtheta = compute_velocities(vertex_coords, leg_params, theta)
-    %your code here
+    fun = @(V) link_length_error_func(V, leg_params);
+    
+    J = approximate_jacobian (fun, vertex_coords);
+
+    B = zeros(14,1);
+    B(1) = - leg_params.crank_length * sin(theta);
+    B(2) = leg_params.crank_length * cos(theta);
+
+    top = eye(4, 14); 
+    M = [top; J];
+    dVdtheta = M \ B;
 end
